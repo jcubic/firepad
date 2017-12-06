@@ -1,0 +1,188 @@
+<!DOCTYPE HTML>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta charset="utf-8" />
+    <title>Firepad</title>
+    <meta name="Description" content="Colaborative Code editing using Firepad"/>
+    <link rel="apple-touch-icon" sizes="180x180" href="./favicon/apple-touch-icon.png"/>
+    <link rel="icon" type="image/png" sizes="32x32" href="./favicon/favicon-32x32.png"/>
+    <link rel="icon" type="image/png" sizes="16x16" href="./favicon/favicon-16x16.png"/>
+    <link rel="manifest" href="./favicon/manifest.json"/>
+    <link rel="mask-icon" href="./favicon/safari-pinned-tab.svg" color="#5bbad5"/>
+    <meta name="theme-color" content="#ffffff"/>
+    <!--[if IE]>
+    <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <!--
+    <link href="css/style.css" rel="stylesheet"/>
+    -->
+    <style>
+     html { height: 100%; }
+     body { margin: 0; height: 100%; position: relative; }
+     /* Height / width / positioning can be customized for your use case.
+        For demo purposes, we make firepad fill the entire browser. */
+     #firepad {
+         width: 100%;
+         height: calc(100% - 25px);
+     }
+     header {
+         height: 25px;
+     }
+    </style>
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/3.3.0/firebase.js"></script>
+
+    <!-- CodeMirror -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.17.0/codemirror.js"></script>
+    <script src="https://cdn.rawgit.com/codemirror/CodeMirror/master/mode/meta.js"></script>
+    <script src="https://cdn.rawgit.com/codemirror/CodeMirror/master/mode/javascript/javascript.js"></script>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.17.0/codemirror.css"/>
+
+    <!-- Firepad -->
+    <link rel="stylesheet" href="https://cdn.firebase.com/libs/firepad/1.4.0/firepad.css" />
+    <script src="https://cdn.firebase.com/libs/firepad/1.4.0/firepad.min.js"></script>
+    <script>
+     function init() {
+         var config = {
+             apiKey: "AIzaSyC_hTdWCd3mF1T0r-zGmf5XVrToC_0mnOU",
+             authDomain: "jcubic-firepad.firebaseapp.com",
+             databaseURL: "https://jcubic-firepad.firebaseio.com",
+             projectId: "jcubic-firepad",
+             storageBucket: "jcubic-firepad.appspot.com",
+             messagingSenderId: "850974268068"
+         };
+         // Initialize the Firebase SDK.
+         firebase.initializeApp(config);
+
+         // Get Firebase Database reference.
+         window.firepadRef = getHashRef();
+         window.modeRef = firepadRef.child('mode');
+         var mode = 'text/javascript';
+         var select = document.getElementById('language');
+         window.codeMirror = CodeMirror(document.getElementById('firepad'), {
+             lineNumbers: true,
+             mode: mode
+         });
+         select.appendChild(option('', ''));
+         CodeMirror.modeInfo.forEach(function(m) {
+             select.appendChild(option(
+                 m.name,
+                 m.name
+             ));
+         });
+         modeRef.once('value', function(dataSnapshot) {
+             var value = dataSnapshot.val();
+             if (value) {
+                 setMode(dataSnapshot.val());
+             } else {
+                 selectOption(select, 'JavaScript');
+             }
+         });
+         modeRef.on('value', function(dataSnapshot) {
+             setMode(dataSnapshot.val());
+         });
+         function setMode(value) {
+             if (value) {
+                 var found = CodeMirror.findModeByMIME(value);
+                 if (found) {
+                     selectOption(select, found.name);
+                     mode = found.mime;
+                     loadLanguage(found.mode).then(function() {
+                         codeMirror.setOption("mode", mode);
+                     });
+                 }
+             }
+         }
+         select.addEventListener('change', function(e) {
+             var lang = select.selectedOptions[0].value;
+             if (!lang) {
+                 return;
+             }
+             var mode = CodeMirror.findModeByName(lang)
+             if (mode) {
+                 var mime = mode.mime;
+                 if (mime instanceof Array) {
+                     mime = mime[0];
+                 }
+                 loadLanguage(mode.mode).then(function() {
+                     modeRef.set(mime, function() {
+                         codeMirror.setOption("mode", mime);
+                     });
+                 });
+             }
+         });
+
+         // Create Firepad (with rich text toolbar and shortcuts enabled).
+         var firepad = Firepad.fromCodeMirror(firepadRef, codeMirror, {
+             defaultText: '/* enter your code here */'
+         });
+     }
+     function option(name, value, attrs) {
+         attrs = attrs || {};
+         var option = document.createElement('option');
+         option.innerText = name;
+         option.value = value;
+         Object.keys(attrs).forEach(function(name) {
+             option.setAttribute(name, attrs[name]);
+         });
+         return option;
+     }
+     // Helper to get hash from end of URL or generate a random one.
+     function getHashRef() {
+         var ref = firebase.database().ref();
+         var hash = window.location.hash.replace(/#/g, '');
+         if (hash) {
+             ref = ref.child(hash);
+         } else {
+             ref = ref.push(); // generate unique location.
+             window.location = window.location + '#' + ref.key; // add it as a hash to the URL.
+         }
+         if (typeof console !== 'undefined') {
+             console.log('Firebase data: ', ref.toString());
+         }
+         return ref;
+     }
+     function selectOption(select, value) {
+         var opts = select.options;
+         for (var opt, i = 0; opt = opts[i]; i++) {
+             if (opt.value == value) {
+                 select.selectedIndex = i;
+                 break;
+             }
+         }
+     }
+     function loadLanguage(lang) {
+         return new Promise(function(resolve) {
+             if (document.querySelectorAll('[data-lang="' + lang + '"]').length) {
+                 resolve();
+             } else {
+                 var base = 'https://rawgit.com/codemirror/CodeMirror/master/mode/';
+                 var script = document.createElement('script');
+                 script.setAttribute('data-lang', lang);
+                 script.src = [base,lang,'/',lang,'.js'].join('');
+                 document.head.appendChild(script);
+                 script.async = true;
+                 var done = false;
+                 script.onreadystatechange = script.onload = function() {
+                     var state = script.readyState;
+                     if (!done && (!state || /loaded|complete/.test(state))) {
+                         done = true;
+                         delete script.onreadystatechange;
+                         delete script.onload;
+                         resolve();
+                     }
+                 };
+             }
+         });
+     }
+    </script>
+</head>
+<body onload="init()">
+  <header>
+    <select id="language">
+    </select>
+  </header>
+  <div id="firepad"></div>
+</body>
+</html>
