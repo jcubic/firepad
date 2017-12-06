@@ -176,6 +176,17 @@
              }
          });
      }
+     function time(timestamp) {
+         var date = new Date(timestamp);
+         var pad = leftpad.bind(null, 2);
+         var time = [date.getHours(), date.getMinutes()].map(pad).join(':')
+         date = [date.getFullYear(), pad(d.getMonth()+1), pad(d.getDate())].join('-');
+         return [date, time].join(' ');
+     }
+     function leftpad(len, num) {
+         var str = new Array(len).join('0') + num.toString();
+         return str.substring(str.length-len);
+     }
     </script>
 </head>
 <body onload="init()">
