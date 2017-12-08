@@ -33,16 +33,17 @@
     <script src="https://www.gstatic.com/firebasejs/3.3.0/firebase.js"></script>
 
     <!-- CodeMirror -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.17.0/codemirror.js"></script>
-    <script src="https://cdn.rawgit.com/codemirror/CodeMirror/master/mode/meta.js"></script>
-    <script src="https://cdn.rawgit.com/codemirror/CodeMirror/master/mode/javascript/javascript.js"></script>
-
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.32.0/codemirror.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.32.0/mode/meta.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.32.0/mode/javascript/javascript.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.17.0/codemirror.css"/>
 
     <!-- Firepad -->
     <link rel="stylesheet" href="https://cdn.firebase.com/libs/firepad/1.4.0/firepad.css" />
     <script src="https://cdn.firebase.com/libs/firepad/1.4.0/firepad.min.js"></script>
+
     <script>
+     var base = 'https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.32.0/';
      function init() {
          var config = {
              apiKey: "AIzaSyC_hTdWCd3mF1T0r-zGmf5XVrToC_0mnOU",
@@ -112,21 +113,21 @@
              init('');
              firepadRef.child('history').once('child_added', function(dataSnapshot) {
                  var entry = dataSnapshot.val();
-                 new_session_option(datetime(entry.t), firepadRef.key);
+                 newSessionOption(datetime(entry.t), firepadRef.key);
                  session.value = firepadRef.key;
              });
          });
          firepadRef.parent.on('child_added', function(dataSnapshot) {
              var value = dataSnapshot.val();
              if (value.history) {
-                 new_session_option(
+                 newSessionOption(
                      value.history.A0.t,
                      dataSnapshot.key,
                      firepadRef.key == dataSnapshot.key
                  );
              }
          });
-         function new_session_option(timestamp, key, selected) {
+         function newSessionOption(timestamp, key, selected) {
              var date = datetime(timestamp);
              var attrs = {};
              if (selected) {
@@ -172,6 +173,9 @@
                  if (found) {
                      selectOption(language, found.name);
                      mode = found.mime;
+                     if (mode instanceof Array) {
+                         mode = mode[0];
+                     }
                      loadLanguage(found.mode).then(function() {
                          codeMirror.setOption("mode", mode);
                      });
@@ -211,15 +215,23 @@
          }
      }
      function loadLanguage(lang) {
+         if (lang == 'gfm') {
+             return Promise.all([
+                 loadScript(base + 'mode/gfm/gfm.js'),
+                 loadScript(base + 'addon/mode/overlay.js'),
+                 loadScript(base + 'mode/markdown/markdown.js')
+             ]);
+         }
+         var url = [base, 'mode/', lang, '/', lang, '.js'].join('');
+         return loadScript(url);
+     }
+     function loadScript(url) {
          return new Promise(function(resolve) {
-             if (document.querySelectorAll('[data-lang="' + lang + '"]').length) {
+             if (document.querySelectorAll('[src="' + url + '"]').length) {
                  resolve();
              } else {
-                 var base = 'https://rawgit.com/codemirror/CodeMirror/master/mode/';
                  var script = document.createElement('script');
-                 script.setAttribute('data-lang', lang);
-                 script.src = [base,lang,'/',lang,'.js'].join('');
-                 document.head.appendChild(script);
+                 script.src = url;
                  script.async = true;
                  var done = false;
                  script.onreadystatechange = script.onload = function() {
@@ -231,9 +243,11 @@
                          resolve();
                      }
                  };
+                 document.head.appendChild(script);
              }
          });
      }
+
      function datetime(timestamp) {
          var date = new Date(timestamp);
          var pad = leftpad.bind(null, 2);
