@@ -56,46 +56,31 @@
          firebase.initializeApp(config);
 
          // Get Firebase Database reference.
-         window.firepadRef = getHashRef();
-         window.modeRef = firepadRef.child('mode');
+         var firepadRef = getHashRef();
+         var modeRef;
+
+
          var mode = 'text/javascript';
-         var select = document.getElementById('language');
-         window.codeMirror = CodeMirror(document.getElementById('firepad'), {
-             lineNumbers: true,
-             mode: mode
-         });
-         select.appendChild(option('', ''));
+         var language = document.getElementById('language');
+         var session = document.getElementById('session');
+         var codeMirror, firepad;
+
+         language.appendChild(option('', ''));
          CodeMirror.modeInfo.forEach(function(m) {
-             select.appendChild(option(
+             language.appendChild(option(
                  m.name,
                  m.name
              ));
          });
-         modeRef.once('value', function(dataSnapshot) {
-             var value = dataSnapshot.val();
-             if (value) {
-                 setMode(dataSnapshot.val());
-             } else {
-                 selectOption(select, 'JavaScript');
-             }
+
+         session.addEventListener('change', function(e) {
+             var hash = session.selectedOptions[0].value;
+             firepadRef = getHashRef(hash);
+             init();
          });
-         modeRef.on('value', function(dataSnapshot) {
-             setMode(dataSnapshot.val());
-         });
-         function setMode(value) {
-             if (value) {
-                 var found = CodeMirror.findModeByMIME(value);
-                 if (found) {
-                     selectOption(select, found.name);
-                     mode = found.mime;
-                     loadLanguage(found.mode).then(function() {
-                         codeMirror.setOption("mode", mode);
-                     });
-                 }
-             }
-         }
-         select.addEventListener('change', function(e) {
-             var lang = select.selectedOptions[0].value;
+
+         language.addEventListener('change', function(e) {
+             var lang = language.selectedOptions[0].value;
              if (!lang) {
                  return;
              }
@@ -112,11 +97,59 @@
                  });
              }
          });
-
-         // Create Firepad (with rich text toolbar and shortcuts enabled).
-         var firepad = Firepad.fromCodeMirror(firepadRef, codeMirror, {
-             defaultText: '/* enter your code here */'
+         firepadRef.parent.on('child_added', function(dataSnapshot) {
+             var value = dataSnapshot.val();
+             var date = datetime(value.history.A0.t);
+             var attrs = {};
+             if (firepadRef.key == dataSnapshot.key) {
+                 attrs.selected = 'selected';
+             }
+             session.appendChild(option(date, dataSnapshot.key, attrs));
          });
+
+         function init() {
+             if (modeRef) {
+                 modeRef.off();
+                 firepadRef.off();
+             }
+             modeRef = firepadRef.child('mode');
+             var node = document.getElementById('firepad');
+             node.innerHTML = '';
+             codeMirror = CodeMirror(node, {
+                 lineNumbers: true,
+                 mode: mode
+             });
+             modeRef.once('value', function(dataSnapshot) {
+                 var value = dataSnapshot.val();
+                 if (value) {
+                     setMode(dataSnapshot.val());
+                 } else {
+                     selectOption(language, 'JavaScript');
+                 }
+             });
+             modeRef.on('value', function(dataSnapshot) {
+                 setMode(dataSnapshot.val());
+             });
+             
+
+             // Create Firepad (with rich text toolbar and shortcuts enabled).
+             firepad = Firepad.fromCodeMirror(firepadRef, codeMirror, {
+                 defaultText: '/* enter your code here */'
+             });
+         }
+         init();
+         function setMode(value) {
+             if (value) {
+                 var found = CodeMirror.findModeByMIME(value);
+                 if (found) {
+                     selectOption(language, found.name);
+                     mode = found.mime;
+                     loadLanguage(found.mode).then(function() {
+                         codeMirror.setOption("mode", mode);
+                     });
+                 }
+             }
+         }
      }
      function option(name, value, attrs) {
          attrs = attrs || {};
@@ -129,18 +162,15 @@
          return option;
      }
      // Helper to get hash from end of URL or generate a random one.
-     function getHashRef() {
+     function getHashRef(name) {
          var ref = firebase.database().ref();
-         var hash = window.location.hash.replace(/#/g, '');
+         hash = name || window.location.hash.replace(/#/g, '');
          if (hash) {
              ref = ref.child(hash);
          } else {
              ref = ref.push(); // generate unique location.
-             window.location = window.location + '#' + ref.key; // add it as a hash to the URL.
          }
-         if (typeof console !== 'undefined') {
-             console.log('Firebase data: ', ref.toString());
-         }
+         window.hash = '#' + ref.key; // add it as a hash to the URL.
          return ref;
      }
      function selectOption(select, value) {
@@ -176,11 +206,11 @@
              }
          });
      }
-     function time(timestamp) {
+     function datetime(timestamp) {
          var date = new Date(timestamp);
          var pad = leftpad.bind(null, 2);
          var time = [date.getHours(), date.getMinutes()].map(pad).join(':')
-         date = [date.getFullYear(), pad(d.getMonth()+1), pad(d.getDate())].join('-');
+         date = [date.getFullYear(), pad(date.getMonth()+1), pad(date.getDate())].join('-');
          return [date, time].join(' ');
      }
      function leftpad(len, num) {
@@ -191,8 +221,8 @@
 </head>
 <body onload="init()">
   <header>
-    <select id="language">
-    </select>
+    <select id="language"></select>
+    <select id="session"></select>
   </header>
   <div id="firepad"></div>
 </body>
