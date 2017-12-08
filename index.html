@@ -65,6 +65,7 @@
          var session = document.getElementById('session');
          var codeMirror, firepad;
          var remove_session = document.getElementById('remove');
+         var new_session = document.getElementById('new');
 
          language.appendChild(option('', ''));
          CodeMirror.modeInfo.forEach(function(m) {
@@ -107,18 +108,35 @@
                  });
              }
          });
+         new_session.addEventListener('click', function() {
+             init('');
+             firepadRef.child('history').once('child_added', function(dataSnapshot) {
+                 var entry = dataSnapshot.val();
+                 new_session_option(datetime(entry.t), firepadRef.key);
+                 session.value = firepadRef.key;
+             });
+         });
          firepadRef.parent.on('child_added', function(dataSnapshot) {
              var value = dataSnapshot.val();
-             var date = datetime(value.history.A0.t);
+             if (value.history) {
+                 new_session_option(
+                     value.history.A0.t,
+                     dataSnapshot.key,
+                     firepadRef.key == dataSnapshot.key
+                 );
+             }
+         });
+         function new_session_option(timestamp, key, selected) {
+             var date = datetime(timestamp);
              var attrs = {};
-             if (firepadRef.key == dataSnapshot.key) {
+             if (selected) {
                  attrs.selected = 'selected';
              }
-             session.appendChild(option(date, dataSnapshot.key, attrs));
-         });
+             session.appendChild(option(date, key, attrs));
+         }
 
          function init(key) {
-             if (key) {
+             if (typeof key != 'undefined') {
                  firepadRef = getHashRef(key);
              }
              if (modeRef) {
@@ -174,7 +192,7 @@
      // Helper to get hash from end of URL or generate a random one.
      function getHashRef(name) {
          var ref = firebase.database().ref();
-         hash = name || window.location.hash.replace(/#/g, '');
+         hash = name != undefined ? name : window.location.hash.replace(/#/g, '');
          if (hash) {
              ref = ref.child(hash);
          } else {
@@ -234,6 +252,7 @@
     <select id="language"></select>
     <select id="session"></select>
     <button id="remove">remove session</button>
+    <button id="new">new session</button>
   </header>
   <div id="firepad"></div>
 </body>
