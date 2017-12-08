@@ -64,6 +64,7 @@
          var language = document.getElementById('language');
          var session = document.getElementById('session');
          var codeMirror, firepad;
+         var remove_session = document.getElementById('remove');
 
          language.appendChild(option('', ''));
          CodeMirror.modeInfo.forEach(function(m) {
@@ -75,8 +76,7 @@
 
          session.addEventListener('change', function(e) {
              var hash = session.selectedOptions[0].value;
-             firepadRef = getHashRef(hash);
-             init();
+             init(hash);
          });
 
          language.addEventListener('change', function(e) {
@@ -97,6 +97,16 @@
                  });
              }
          });
+         remove.addEventListener('click', function() {
+             if (session.length > 1) {
+                 session.removeChild(session.selectedOptions[0]);
+                 firepadRef.remove().then(function() {
+                     var last = session[session.length-1].value;
+                     session.value = last;
+                     init(last);
+                 });
+             }
+         });
          firepadRef.parent.on('child_added', function(dataSnapshot) {
              var value = dataSnapshot.val();
              var date = datetime(value.history.A0.t);
@@ -107,7 +117,10 @@
              session.appendChild(option(date, dataSnapshot.key, attrs));
          });
 
-         function init() {
+         function init(key) {
+             if (key) {
+                 firepadRef = getHashRef(key);
+             }
              if (modeRef) {
                  modeRef.off();
                  firepadRef.off();
@@ -130,9 +143,6 @@
              modeRef.on('value', function(dataSnapshot) {
                  setMode(dataSnapshot.val());
              });
-             
-
-             // Create Firepad (with rich text toolbar and shortcuts enabled).
              firepad = Firepad.fromCodeMirror(firepadRef, codeMirror, {
                  defaultText: '/* enter your code here */'
              });
@@ -170,7 +180,7 @@
          } else {
              ref = ref.push(); // generate unique location.
          }
-         window.hash = '#' + ref.key; // add it as a hash to the URL.
+         window.location.hash = '#' + ref.key; // add it as a hash to the URL.
          return ref;
      }
      function selectOption(select, value) {
@@ -223,6 +233,7 @@
   <header>
     <select id="language"></select>
     <select id="session"></select>
+    <button id="remove">remove session</button>
   </header>
   <div id="firepad"></div>
 </body>
