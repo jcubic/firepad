@@ -57,7 +57,8 @@
          firebase.initializeApp(config);
 
          // Get Firebase Database reference.
-         var firepadRef = getHashRef();
+         var roomRef = getRoomRef();
+         var firepadRef = getSessionRef(roomRef);
          var modeRef;
 
 
@@ -135,10 +136,9 @@
              }
              session.appendChild(option(date, key, attrs));
          }
-
          function init(key) {
              if (typeof key != 'undefined') {
-                 firepadRef = getHashRef(key);
+                 firepadRef = getSessionRef(roomRef, key);
              }
              if (modeRef) {
                  modeRef.off();
@@ -193,17 +193,84 @@
          });
          return option;
      }
-     // Helper to get hash from end of URL or generate a random one.
-     function getHashRef(name) {
+     function getRoomRef() {
+         var data = query();
          var ref = firebase.database().ref();
-         hash = name != undefined ? name : window.location.hash.replace(/#/g, '');
-         if (hash) {
-             ref = ref.child(hash);
+         var room = data.room || getName(4, 10);
+         query(Object.assign(data, {
+             room: room
+         }));
+         return ref.child(room);
+     }
+     // Helper to get hash from end of URL or generate a random one.
+     function getSessionRef(ref, name) {
+         var data = query();
+         var room = name != undefined ? name : data.session;
+         if (room) {
+             ref = ref.child(room);
          } else {
-             ref = ref.push(); // generate unique location.
+             ref = ref.push();
          }
-         window.location.hash = '#' + ref.key; // add it as a hash to the URL.
+         query(Object.assign(data, {
+             session: ref.key
+         }));
          return ref;
+     }
+     // random name taken from https://leapon.net/en/random-name-generator-javascript
+     function rnd(minv, maxv) {
+         if (maxv < minv) return 0;
+         return Math.floor(Math.random()*(maxv-minv+1)) + minv;
+     }
+     function getName(minlength, maxlength, prefix, suffix) {
+         prefix = prefix || '';
+         suffix = suffix || '';
+         //note: 'h' appears as consonants and vocals
+         var vocals = 'aeiouyh' + 'aeiou' + 'aeiou';
+         var cons = 'bcdfghjklmnpqrstvwxz' + 'bcdfgjklmnprstvw' + 'bcdfgjklmnprst';
+         var allchars = vocals + cons;
+         var length = rnd(minlength, maxlength) - prefix.length - suffix.length;
+         if (length < 1) length = 1;
+         var consnum = 0;
+         if (prefix.length > 0) {
+             for (var i = 0; i < prefix.length; i++) {
+                 if (consnum == 2) consnum = 0;
+                 if (cons.indexOf(prefix[i]) != -1) {
+                     consnum++;
+                 }
+             }
+         } else {
+             consnum = 1;
+         }
+         var name = prefix;
+         for (var i = 0; i < length; i++) {
+             //if we have used 2 consonants, the next char must be vocal.
+             if (consnum == 2) {
+                 touse = vocals;
+                 consnum = 0;
+             } else touse = allchars;
+             //pick a random character from the set we are goin to use.
+             c = touse.charAt(rnd(0, touse.length - 1));
+             name = name + c;
+             if (cons.indexOf(c) != -1) consnum++;
+         }
+         name = name.charAt(0).toUpperCase() + name.substring(1, name.length) + suffix;
+         return name;
+     }
+     function query(data) {
+         if (typeof data == 'undefined') {
+             var query = {};
+             if (location.hash) {
+                 location.hash.replace(/^#/, '').split('&').forEach(function(pair) {
+                     pair = pair.split('=');
+                     query[pair[0]] = pair.slice(1).join('=');
+                 });
+             }
+             return query;
+         } else {
+             location.hash = '#' + Object.keys(data).map(function(key) {
+                 return key + '=' + data[key];
+             }).join('&');
+         }
      }
      function selectOption(select, value) {
          var opts = select.options;
