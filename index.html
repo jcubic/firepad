@@ -260,10 +260,13 @@
          if (typeof data == 'undefined') {
              var query = {};
              if (location.hash) {
-                 location.hash.replace(/^#/, '').split('&').forEach(function(pair) {
-                     pair = pair.split('=');
-                     query[pair[0]] = pair.slice(1).join('=');
-                 });
+                 var hash = location.hash.replace(/^#/, '');
+                 if (hash.match(/=/)) {
+                     hash.split('&').filter(Boolean).forEach(function(pair) {
+                         pair = pair.split('=');
+                         query[pair[0]] = pair.slice(1).join('=');
+                     });
+                 }
              }
              return query;
          } else {
