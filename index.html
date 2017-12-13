@@ -112,19 +112,13 @@
          });
          new_session.addEventListener('click', function() {
              init('');
-             firepadRef.child('history').once('child_added', function(dataSnapshot) {
-                 var entry = dataSnapshot.val();
-                 newSessionOption(datetime(entry.t), firepadRef.key);
-                 session.value = firepadRef.key;
-             });
          });
          firepadRef.parent.on('child_added', function(dataSnapshot) {
              var value = dataSnapshot.val();
-             if (value.history) {
+             if (value.history && firepadRef.key != dataSnapshot.key) {
                  newSessionOption(
                      value.history.A0.t,
-                     dataSnapshot.key,
-                     firepadRef.key == dataSnapshot.key
+                     dataSnapshot.key
                  );
              }
          });
@@ -144,6 +138,11 @@
                  modeRef.off();
                  firepadRef.off();
              }
+             firepadRef.child('history').once('child_added', function(dataSnapshot) {
+                 var entry = dataSnapshot.val();
+                 newSessionOption(datetime(entry.t), firepadRef.key);
+                 session.value = firepadRef.key;
+             });
              modeRef = firepadRef.child('mode');
              var node = document.getElementById('firepad');
              node.innerHTML = '';
