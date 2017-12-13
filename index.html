@@ -79,7 +79,7 @@
 
          session.addEventListener('change', function(e) {
              var hash = session.selectedOptions[0].value;
-             init(hash);
+             initSession(hash);
          });
 
          language.addEventListener('change', function(e) {
@@ -111,7 +111,7 @@
              }
          });
          new_session.addEventListener('click', function() {
-             init('');
+             initSession('');
          });
          firepadRef.parent.on('child_added', function(dataSnapshot) {
              var value = dataSnapshot.val();
@@ -130,7 +130,22 @@
              }
              session.appendChild(option(date, key, attrs));
          }
-         function init(key) {
+         function setMode(value) {
+             if (value) {
+                 var found = CodeMirror.findModeByMIME(value);
+                 if (found) {
+                     selectOption(language, found.name);
+                     mode = found.mime;
+                     if (mode instanceof Array) {
+                         mode = mode[0];
+                     }
+                     loadLanguage(found.mode).then(function() {
+                         codeMirror.setOption("mode", mode);
+                     });
+                 }
+             }
+         }
+         function initSession(key) {
              if (typeof key != 'undefined') {
                  firepadRef = getSessionRef(roomRef, key);
              }
@@ -167,22 +182,13 @@
                  defaultText: '/* enter your code here */'
              });
          }
-         init();
-         function setMode(value) {
-             if (value) {
-                 var found = CodeMirror.findModeByMIME(value);
-                 if (found) {
-                     selectOption(language, found.name);
-                     mode = found.mime;
-                     if (mode instanceof Array) {
-                         mode = mode[0];
-                     }
-                     loadLanguage(found.mode).then(function() {
-                         codeMirror.setOption("mode", mode);
-                     });
-                 }
+         initSession();
+         window.addEventListener('hashchange', function() {
+             var session = query().session;
+             if (firepadRef.key != session) {
+                 initSession(session);
              }
-         }
+         });
      }
      function option(name, value, attrs) {
          attrs = attrs || {};
