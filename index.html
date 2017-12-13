@@ -138,11 +138,13 @@
                  modeRef.off();
                  firepadRef.off();
              }
-             firepadRef.child('history').once('child_added', function(dataSnapshot) {
-                 var entry = dataSnapshot.val();
-                 newSessionOption(datetime(entry.t), firepadRef.key);
-                 session.value = firepadRef.key;
-             });
+             if (!key) {
+                 firepadRef.child('history').once('child_added', function(dataSnapshot) {
+                     var entry = dataSnapshot.val();
+                     newSessionOption(datetime(entry.t), firepadRef.key);
+                     session.value = firepadRef.key;
+                 });
+             }
              modeRef = firepadRef.child('mode');
              var node = document.getElementById('firepad');
              node.innerHTML = '';
